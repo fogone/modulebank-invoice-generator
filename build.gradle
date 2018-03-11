@@ -60,6 +60,8 @@ dependencies {
     compile 'org.odftoolkit:odfdom-java:0.8.7'
     compile 'com.lowagie:itext:2.1.7'
     compile 'com.ibm.icu:icu4j:60.2'
+    compile 'org.seleniumhq.selenium:selenium-java:3.9.1'
+    compile 'io.github.bonigarcia:webdrivermanager:2.1.0'
 
     testCompile 'junit:junit:4.12'
 }
