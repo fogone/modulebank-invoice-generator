@@ -3,7 +3,6 @@ package ru.nobirds.invoice.service
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.time.LocalDate
-import java.time.LocalDateTime
 import java.util.*
 
 data class ModulebankCompany(val companyId: String, val companyName: String, val bankAccounts: List<ModulebankAccount>)
@@ -42,10 +41,7 @@ class ModulebankService(private val httpSupport: ModulebankHttpSupport) {
     suspend fun findOperations(token: String, account: ModulebankAccount): List<ModulebankOperation> {
         val url = httpSupport.url().addPathSegment("operation-history").addPathSegment(account.id).build()
 
-        val operations: List<ModulebankOperation> = httpSupport.post(url, token,
-                ModulebankOperationsRequest(category = ModulebankOperationsCategory.Debet, records = 50)
-        )
-
-        return operations
+        return httpSupport.post(url, token,
+                ModulebankOperationsRequest(category = ModulebankOperationsCategory.Debet, records = 50))
     }
 }

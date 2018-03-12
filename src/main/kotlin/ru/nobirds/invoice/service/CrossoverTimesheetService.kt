@@ -12,7 +12,15 @@ import java.nio.file.StandardCopyOption
 import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
-class TimesheetService(private val username: String, private val password: String) {
+class CrossoverTimesheetService(private val username: String, private val password: String) {
+
+    companion object {
+        private const val TAB = '\t'
+
+        private val DEFAULT_CHROME_OPTIONS = ChromeOptions().apply {
+            addArguments("--window-size=1920,1080", "--headless", "--disable-gpu", "--no-sandbox")
+        }
+    }
 
     private val email = By.name("email")
 
@@ -21,9 +29,7 @@ class TimesheetService(private val username: String, private val password: Strin
     }
 
     fun generate(weekDate: LocalDate, output: File) {
-        val options = ChromeOptions()
-        options.addArguments("--window-size=1920,1080", "--headless", "--disable-gpu", "--no-sandbox")
-        val driver = ChromeDriver(options)
+        val driver = ChromeDriver(DEFAULT_CHROME_OPTIONS)
 
         try {
             val fluentWait = FluentWait(driver)
@@ -31,16 +37,20 @@ class TimesheetService(private val username: String, private val password: Strin
                     .pollingEvery(200, TimeUnit.MILLISECONDS)
                     .ignoring(NoSuchElementException::class.java)
 
-            driver.get("https://app.crossover.com/x/dashboard/contractor/my-dashboard?date=" + weekDate.toString())
+            driver.get("https://app.crossover.com/x/dashboard/contractor/my-dashboard?date=$weekDate")
 
             // wait for login form
             fluentWait.until(ExpectedConditions.elementToBeClickable(email))
+
             // fill credentials and login
-            driver.findElement(email).sendKeys(username + '\t'.toString() + password + '\t'.toString() + Keys.RETURN)
+            driver.findElement(email).sendKeys("$username$TAB$password$TAB${Keys.RETURN}")
+
             // wait for dashboard
-            fluentWait.until({ it -> dashboardIsLoaded(it) })
+            fluentWait.until(this::dashboardIsLoaded)
+
             // take screenshot
             val screenshot = (driver as TakesScreenshot).getScreenshotAs(OutputType.FILE)
+
             Files.copy(screenshot.toPath(), output.toPath(), StandardCopyOption.REPLACE_EXISTING)
         } finally {
             driver.close()
@@ -55,8 +65,7 @@ class TimesheetService(private val username: String, private val password: Strin
 
 private fun WebDriver.isTextVisible(textToFind: String): Boolean {
     return try {
-        val element = this.findElement(By.xpath("//*[contains(text(), '$textToFind')]"))
-        element.isDisplayed
+        findElement(By.xpath("//*[contains(text(), '$textToFind')]")).isDisplayed
     } catch (e: NoSuchElementException) {
         false
     }
@@ -67,6 +76,6 @@ fun main(args: Array<String>) {
     val password = args[1]
     val weekDate = LocalDate.parse(args[2])
 
-    TimesheetService(username, password).generate(weekDate, File(weekDate.toString() + ".png"))
+    CrossoverTimesheetService(username, password).generate(weekDate, File(weekDate.toString() + ".png"))
 }
 

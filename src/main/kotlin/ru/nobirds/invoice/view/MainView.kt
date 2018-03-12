@@ -5,7 +5,6 @@ import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.stage.FileChooser
 import javafx.util.Duration
-import javafx.util.converter.CurrencyStringConverter
 import javafx.util.converter.NumberStringConverter
 import kotlinx.coroutines.experimental.javafx.JavaFx
 import kotlinx.coroutines.experimental.launch
@@ -147,10 +146,10 @@ class MainView : View("Invoice generator") {
         }
     }
 
-    private fun generate(it: File) {
-        val money = Money(selectedOperation.amount, Currency.getInstance(selectedOperation.currency))
+    private fun generate(outputFile: File) {
         launch {
-            invoiceService.generate(templatePath!!, invoiceNumber, selectedWeek!!, money, it)
+            val money = Money(selectedOperation.amount, Currency.getInstance(selectedOperation.currency))
+            invoiceService.generate(templatePath!!, invoiceNumber, selectedWeek!!, money, outputFile)
         }
         invoiceNumber++
     }
