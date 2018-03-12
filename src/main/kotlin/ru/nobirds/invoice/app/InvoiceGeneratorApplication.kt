@@ -5,7 +5,7 @@ import org.controlsfx.glyphfont.FontAwesome
 import ru.nobirds.invoice.service.CrossoverTimesheetService
 import ru.nobirds.invoice.service.InvoiceService
 import ru.nobirds.invoice.service.ModulebankService
-import ru.nobirds.invoice.service.ModulebankHttpSupport
+import ru.nobirds.invoice.service.HttpSupport
 import ru.nobirds.invoice.view.MainView
 import tornadofx.*
 import kotlin.reflect.KClass
@@ -19,10 +19,10 @@ class InvoiceGeneratorApplication: App(MainView::class, Styles::class) {
 
             val okHttpClient by register { OkHttpClient() }
 
-            val modulebankHttpSupport by register { ModulebankHttpSupport(okHttpClient) }
-            val modulebankService by register { ModulebankService(modulebankHttpSupport) }
+            val httpSupport by register { HttpSupport(okHttpClient) }
+            val modulebankService by register { ModulebankService(httpSupport) }
 
-            val crossoverTimesheetService by register { CrossoverTimesheetService() }
+            val crossoverTimesheetService by register { CrossoverTimesheetService(httpSupport) }
         }
     }
 

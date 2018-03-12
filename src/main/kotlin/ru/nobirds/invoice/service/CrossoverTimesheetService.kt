@@ -1,6 +1,8 @@
 package ru.nobirds.invoice.service
 
 import io.github.bonigarcia.wdm.WebDriverManager
+import okhttp3.HttpUrl
+import okhttp3.OkHttpClient
 import org.openqa.selenium.*
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.chrome.ChromeOptions
@@ -12,7 +14,7 @@ import java.nio.file.StandardCopyOption
 import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
-class CrossoverTimesheetService {
+class CrossoverTimesheetService(val httpSupport: HttpSupport) {
 
     companion object {
         private const val TAB = '\t'
@@ -28,12 +30,24 @@ class CrossoverTimesheetService {
         WebDriverManager.chromedriver().setup()
     }
 
+    suspend fun check(username: String, password: String): Boolean {
+        return try {
+            httpSupport.post<Unit>(HttpUrl.parse("https://api.crossover.com/api/identity/authentication")!!) {
+                withBasic(username, password)
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
     fun generate(username: String, password: String, weekDate: LocalDate, output: File) {
         val driver = ChromeDriver(DEFAULT_CHROME_OPTIONS)
 
         try {
             val fluentWait = FluentWait(driver)
-                    .withTimeout(30, TimeUnit.SECONDS)
+                    .withTimeout(300, TimeUnit.SECONDS)
                     .pollingEvery(200, TimeUnit.MILLISECONDS)
                     .ignoring(NoSuchElementException::class.java)
 
@@ -70,12 +84,3 @@ private fun WebDriver.isTextVisible(textToFind: String): Boolean {
         false
     }
 }
-
-fun main(args: Array<String>) {
-    val username = args[0]
-    val password = args[1]
-    val weekDate = LocalDate.parse(args[2])
-
-    CrossoverTimesheetService().generate(username, password, weekDate, File(weekDate.toString() + ".png"))
-}
-
