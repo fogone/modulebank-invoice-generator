@@ -2,6 +2,7 @@ package ru.nobirds.invoice.app
 
 import okhttp3.OkHttpClient
 import org.controlsfx.glyphfont.FontAwesome
+import ru.nobirds.invoice.service.CrossoverTimesheetService
 import ru.nobirds.invoice.service.InvoiceService
 import ru.nobirds.invoice.service.ModulebankService
 import ru.nobirds.invoice.service.ModulebankHttpSupport
@@ -20,6 +21,8 @@ class InvoiceGeneratorApplication: App(MainView::class, Styles::class) {
 
             val modulebankHttpSupport by register { ModulebankHttpSupport(okHttpClient) }
             val modulebankService by register { ModulebankService(modulebankHttpSupport) }
+
+            val crossoverTimesheetService by register { CrossoverTimesheetService() }
         }
     }
 

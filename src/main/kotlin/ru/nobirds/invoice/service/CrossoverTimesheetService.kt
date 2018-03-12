@@ -12,7 +12,7 @@ import java.nio.file.StandardCopyOption
 import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
-class CrossoverTimesheetService(private val username: String, private val password: String) {
+class CrossoverTimesheetService {
 
     companion object {
         private const val TAB = '\t'
@@ -28,7 +28,7 @@ class CrossoverTimesheetService(private val username: String, private val passwo
         WebDriverManager.chromedriver().setup()
     }
 
-    fun generate(weekDate: LocalDate, output: File) {
+    fun generate(username: String, password: String, weekDate: LocalDate, output: File) {
         val driver = ChromeDriver(DEFAULT_CHROME_OPTIONS)
 
         try {
@@ -76,6 +76,6 @@ fun main(args: Array<String>) {
     val password = args[1]
     val weekDate = LocalDate.parse(args[2])
 
-    CrossoverTimesheetService(username, password).generate(weekDate, File(weekDate.toString() + ".png"))
+    CrossoverTimesheetService().generate(username, password, weekDate, File(weekDate.toString() + ".png"))
 }
 

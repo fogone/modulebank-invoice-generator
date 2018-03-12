@@ -26,6 +26,8 @@ class MainView : View("Invoice generator") {
 
     private val modulebankService: ModulebankService by di()
 
+    private val crossoverTimesheetService: CrossoverTimesheetService by di()
+
     private var processNode: Node? = null
 
     private val bankTokenProperty = SimpleStringProperty().persistent(config, "bankToken", null)
@@ -53,6 +55,12 @@ class MainView : View("Invoice generator") {
     private val selectedOperationProperty = SimpleObjectProperty<ModulebankOperation>()
     private var selectedOperation by selectedOperationProperty
 
+    private val crossoverLoginProperty = SimpleStringProperty().persistent(config, "crossoverLogin", null)
+    private var crossoverLogin by crossoverLoginProperty
+
+    private val crossoverPasswordProperty = SimpleStringProperty().persistent(config, "crossoverPassword", null)
+    private val crossoverPassword by crossoverPasswordProperty
+
     private val templatePathProperty = SimpleObjectProperty<File?>().persistent(config, "templatePath", null)
     private var templatePath: File? by templatePathProperty
 
@@ -62,8 +70,14 @@ class MainView : View("Invoice generator") {
     private val selectedWeekProperty = SimpleObjectProperty<LocalDate>().persistent(config, "selectedWeek", null)
     private var selectedWeek: LocalDate? by selectedWeekProperty
 
-    private val sumProperty = SimpleLongProperty().persistent(config, "sum", 2000L)
-    private val sum: Long by sumProperty
+    private val generationEnabled = selectedOperationProperty.isNotNull and
+            (crossoverLoginProperty.isNotNull and crossoverPasswordProperty.isNotNull) and
+            templatePathProperty.booleanBinding { it?.exists() == true } and
+            invoiceNumberProperty.greaterThan(0) and
+            selectedWeekProperty.isNotNull
+
+    private val invoiceGenerationIcon = SimpleObjectProperty(fontAwesome[QUESTION_CIRCLE])
+    private val timesheetGenerationIcon = SimpleObjectProperty(fontAwesome[QUESTION_CIRCLE])
 
     override val root = form {
         fieldset("Module bank", fontAwesome[BANK]) {
@@ -111,6 +125,15 @@ class MainView : View("Invoice generator") {
             }
         }
 
+        fieldset("Crossover", fontAwesome[CIRCLE_ALT]) {
+            field("Login") {
+                textfield(crossoverLoginProperty)
+            }
+            field("Password") {
+                passwordfield(crossoverPasswordProperty)
+            }
+        }
+
         fieldset("Invoice", fontAwesome[FILE]) {
             field("Template") {
                 label(templatePathProperty.stringBinding { it?.toString() ?: "[Please select]" })
@@ -134,7 +157,7 @@ class MainView : View("Invoice generator") {
                 vbox {
                     alignment = Pos.CENTER_RIGHT
                     button("Generate", fontAwesome[GEAR]) {
-                        enableWhen { templatePathProperty.isNotNull and selectedWeekProperty.isNotNull and selectedOperationProperty.isNotNull }
+                        enableWhen { generationEnabled }
                         action {
                             selectTargetFile()?.let {
                                 generate(it)
@@ -144,14 +167,64 @@ class MainView : View("Invoice generator") {
                 }
             }
         }
+        fieldset("Generation", fontAwesome[COMMENTS]) {
+            field {
+                label("Invoice generation") {
+                    graphicProperty().bind(invoiceGenerationIcon)
+                }
+            }
+            field {
+                label("Invoice generation") {
+                    graphicProperty().bind(timesheetGenerationIcon)
+                }
+            }
+        }
     }
 
     private fun generate(outputFile: File) {
+        runLater {
+            setResult(invoiceGenerationIcon)
+            setResult(timesheetGenerationIcon)
+        }
+
         launch {
             val money = Money(selectedOperation.amount, Currency.getInstance(selectedOperation.currency))
-            invoiceService.generate(templatePath!!, invoiceNumber, selectedWeek!!, money, outputFile)
+            val result = try {
+                invoiceService.generate(templatePath!!, invoiceNumber, selectedWeek!!, money,
+                        outputFile.resolve("invoice-$selectedWeek.pdf"))
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+            runLater {
+                setResult(invoiceGenerationIcon, result)
+            }
         }
+
+        launch {
+            val result = try {
+                crossoverTimesheetService.generate(crossoverLogin, crossoverPassword,
+                        selectedWeek!!, outputFile.resolve("timesheet-$selectedWeek.png"))
+                true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                false
+            }
+            runLater {
+                setResult(timesheetGenerationIcon, result)
+            }
+        }
+
         invoiceNumber++
+    }
+
+    private fun setResult(icon: ObjectProperty<Node>, result: Boolean? = null) {
+        icon.value =  when(result) {
+            null -> fontAwesome[QUESTION_CIRCLE]
+            true -> fontAwesome[CHECK_CIRCLE]
+            false -> fontAwesome[BAN]
+        }
     }
 
     init {
@@ -206,7 +279,7 @@ class MainView : View("Invoice generator") {
     }
 
     private fun selectTargetFile(): File? {
-        return selectFile("Select target", emptyArray(), FileChooserMode.Save)
+        return chooseDirectory("Select target directory")
     }
 
     private fun chooseTemplate(): File? {
