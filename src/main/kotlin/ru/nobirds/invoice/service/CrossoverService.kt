@@ -2,19 +2,33 @@ package ru.nobirds.invoice.service
 
 import io.github.bonigarcia.wdm.WebDriverManager
 import okhttp3.HttpUrl
-import okhttp3.OkHttpClient
 import org.openqa.selenium.*
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.chrome.ChromeOptions
 import org.openqa.selenium.support.ui.ExpectedConditions
 import org.openqa.selenium.support.ui.FluentWait
 import java.io.File
+import java.math.BigDecimal
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
-class CrossoverTimesheetService(val httpSupport: HttpSupport) {
+enum class CrossoverPaymentStatus {
+    PROCESSING, PROCESSED, PENDING, CURRENT
+}
+
+data class CrossoverToken(val token: String)
+data class CrossoverPayment(val platform: String, val team: CrossoverTeam,
+                            val timeSheet: CrossoverTimesheet,
+                            val weeklyLimitHours: Long, val amount: BigDecimal,
+                            val status: CrossoverPaymentStatus)
+
+data class CrossoverTeam(val id: Long, val name: String, val company: CrossoverCompany)
+data class CrossoverCompany(val id: Long, val name: String)
+data class CrossoverTimesheet(val start_date: LocalDate, val end_date: LocalDate, val billed_minutes: Long)
+
+class CrossoverService(private val httpSupport: HttpSupport) {
 
     companion object {
         private const val TAB = '\t'
@@ -30,19 +44,18 @@ class CrossoverTimesheetService(val httpSupport: HttpSupport) {
         WebDriverManager.chromedriver().setup()
     }
 
-    suspend fun check(username: String, password: String): Boolean {
-        return try {
-            httpSupport.post<Unit>(HttpUrl.parse("https://api.crossover.com/api/identity/authentication")!!) {
-                withBasic(username, password)
-            }
-            true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
+    suspend fun authenticate(username: String, password: String): String {
+        val httpUrl = HttpUrl.parse("https://api.crossover.com/api/identity/authentication")
+
+        return httpSupport.post<CrossoverToken>(httpUrl!!) { withBasic(username, password) }.token
     }
 
-    fun generate(username: String, password: String, weekDate: LocalDate, output: File) {
+    suspend fun findPayments(token: String, from: LocalDate, to: LocalDate): List<CrossoverPayment> {
+        val url = HttpUrl.parse("https://api.crossover.com/api/identity/users/current/payments?from=$from&to=$to")
+        return httpSupport.get(url!!) { withXAuthToken(token) }
+    }
+
+    fun grabTimesheetScreenTo(username: String, password: String, weekDate: LocalDate, output: File) {
         val driver = ChromeDriver(DEFAULT_CHROME_OPTIONS)
 
         try {

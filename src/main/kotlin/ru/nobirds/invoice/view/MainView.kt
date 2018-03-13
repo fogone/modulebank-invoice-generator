@@ -5,7 +5,6 @@ import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.stage.FileChooser
 import javafx.util.Duration
-import javafx.util.StringConverter
 import javafx.util.converter.NumberStringConverter
 import kotlinx.coroutines.experimental.javafx.JavaFx
 import kotlinx.coroutines.experimental.launch
@@ -28,7 +27,7 @@ class MainView : View("Invoice generator") {
 
     private val modulebankService: ModulebankService by di()
 
-    private val crossoverTimesheetService: CrossoverTimesheetService by di()
+    private val crossoverService: CrossoverService by di()
 
     private var processNode: Node? = null
 
@@ -63,8 +62,24 @@ class MainView : View("Invoice generator") {
     private val crossoverPasswordProperty = SimpleStringProperty().persistent(config, "crossoverPassword", null)
     private var crossoverPassword by crossoverPasswordProperty
 
-    private val crossoverConnectedProperty = SimpleBooleanProperty()
-    private var crossoverConnected by crossoverConnectedProperty
+    private val crossoverConnectionTokenProperty = SimpleStringProperty()
+    private var crossoverConnectionToken by crossoverConnectionTokenProperty
+
+    private val crossoverConnectedProperty = crossoverConnectionTokenProperty.isNotEmpty.apply {
+        onChange {
+            if (it) {
+                updateCrossoverPayments()
+            } else {
+                crossoverPayments = emptyList<CrossoverPayment>().observable()
+            }
+        }
+    }
+
+    private val selectedCrossoverPaymentProperty = SimpleObjectProperty<CrossoverPayment>()
+    private var selectedCrossoverPayment by selectedCrossoverPaymentProperty
+
+    private val crossoverConnected by crossoverConnectedProperty
+
     private val crossoverConnectedIcon = crossoverConnectedProperty.objectBinding {
         when(it) {
             null -> fontAwesome[QUESTION_CIRCLE]
@@ -73,20 +88,20 @@ class MainView : View("Invoice generator") {
         }
     }
 
+    private val crossoverPaymentsProperty = SimpleListProperty<CrossoverPayment>()
+    private var crossoverPayments by crossoverPaymentsProperty
+
     private val templatePathProperty = SimpleObjectProperty<File?>().persistent(config, "templatePath", null)
     private var templatePath: File? by templatePathProperty
 
     private val invoiceNumberProperty = SimpleIntegerProperty().persistent(config, "invoiceNumber", 1)
     private var invoiceNumber: Int by invoiceNumberProperty
 
-    private val selectedWeekProperty = SimpleObjectProperty<LocalDate>().persistent(config, "selectedWeek", null)
-    private var selectedWeek: LocalDate? by selectedWeekProperty
-
     private val generationEnabled = selectedOperationProperty.isNotNull and
             (crossoverLoginProperty.isNotNull and crossoverPasswordProperty.isNotNull) and
             templatePathProperty.booleanBinding { it?.exists() == true } and
             invoiceNumberProperty.greaterThan(0) and
-            selectedWeekProperty.isNotNull and
+            selectedCrossoverPaymentProperty.isNotNull and
             crossoverConnectedProperty
 
     private val invoiceGenerationIcon = SimpleObjectProperty(fontAwesome[QUESTION_CIRCLE])
@@ -156,6 +171,25 @@ class MainView : View("Invoice generator") {
                     graphicProperty().bind(crossoverConnectedIcon)
                 }
             }
+            field("Payments") {
+                tableview(crossoverPaymentsProperty) {
+                    enableWhen { crossoverConnectedProperty }
+                    column("Amount", CrossoverPayment::amount)
+                    // column("Type", ModulebankAccount::category)
+                    column("Status", CrossoverPayment::status)
+                    column("From",CrossoverPayment::timeSheet).value {
+                        it.value.timeSheet.start_date
+                    }
+                    column("To",CrossoverPayment::timeSheet).value {
+                        it.value.timeSheet.end_date
+                    }
+
+                    columnResizePolicy = SmartResize.POLICY
+                    selectedCrossoverPaymentProperty.bind(selectionModel.selectedItemProperty())
+
+                    prefHeight = 100.0
+                }
+            }
         }
 
         fieldset("Invoice", fontAwesome[FILE]) {
@@ -171,11 +205,6 @@ class MainView : View("Invoice generator") {
             }
             field("Number") {
                 textfield(invoiceNumberProperty, NumberStringConverter())
-            }
-            field("Week") {
-                datepicker(selectedWeekProperty) {
-                    enableWhen { templatePathProperty.isNotNull }
-                }
             }
             field {
                 vbox {
@@ -212,21 +241,23 @@ class MainView : View("Invoice generator") {
     private fun checkCrossoverConnection() {
         if (crossoverLogin?.isNotBlank() == true && crossoverPassword?.isNotBlank() == true) {
             launch(JavaFx) {
-                crossoverConnected = crossoverTimesheetService.check(crossoverLogin, crossoverPassword)
+                crossoverConnectionToken = crossoverService.authenticate(crossoverLogin, crossoverPassword)
             }
         }
     }
 
     private fun generate(outputFile: File) {
+        val selectedWeek = selectedCrossoverPayment.timeSheet.start_date
+
         invoiceGenerationIcon.animate {
             val money = Money(selectedOperation.amount, Currency.getInstance(selectedOperation.currency))
-            invoiceService.generate(templatePath!!, invoiceNumber, selectedWeek!!, money,
+            invoiceService.generate(templatePath!!, invoiceNumber, selectedWeek, money,
                     outputFile.resolve("invoice-$selectedWeek.pdf"))
         }
 
         timesheetGenerationIcon.animate {
-            crossoverTimesheetService.generate(crossoverLogin, crossoverPassword,
-                    selectedWeek!!, outputFile.resolve("timesheet-$selectedWeek.png"))
+            crossoverService.grabTimesheetScreenTo(crossoverLogin, crossoverPassword,
+                    selectedWeek, outputFile.resolve("timesheet-$selectedWeek.png"))
         }
 
         invoiceNumber++
@@ -269,6 +300,14 @@ class MainView : View("Invoice generator") {
                     // oops
                 }
             }
+        }
+    }
+
+    private fun updateCrossoverPayments() {
+        launch(JavaFx) {
+            crossoverPayments = crossoverService
+                    .findPayments(crossoverConnectionToken, LocalDate.now().minusMonths(1), LocalDate.now())
+                    .observable()
         }
     }
 
