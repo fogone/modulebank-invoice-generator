@@ -1,8 +1,12 @@
 package ru.nobirds.invoice.view
 
+import javafx.beans.binding.Binding
 import javafx.beans.property.*
-import javafx.geometry.Pos
+import javafx.beans.value.ObservableValue
+import javafx.geometry.Orientation
 import javafx.scene.Node
+import javafx.scene.layout.*
+import javafx.scene.paint.Color
 import javafx.stage.FileChooser
 import javafx.util.Duration
 import javafx.util.converter.NumberStringConverter
@@ -29,13 +33,15 @@ class MainView : View("Invoice generator") {
 
     private val crossoverService: CrossoverService by di()
 
-    private var processNode: Node? = null
+    private var bankProcessNode: Node = fontAwesome[GEAR]
+    private var crossoverProcessNode: Node = fontAwesome[GEAR]
 
     private val bankTokenProperty = SimpleStringProperty().persistent(config, "bankToken", null)
     private var bankToken: String? by bankTokenProperty
 
     private val connectedToBankProperty = SimpleBooleanProperty()
     private var connectedToBank by connectedToBankProperty
+    private val connectedToBankIcon = createStateIcon(connectedToBankProperty)
 
     private val accountsProperty = SimpleListProperty<ModulebankAccount>(emptyList<ModulebankAccount>().observable())
     private var accounts by accountsProperty
@@ -80,11 +86,15 @@ class MainView : View("Invoice generator") {
 
     private val crossoverConnected by crossoverConnectedProperty
 
-    private val crossoverConnectedIcon = crossoverConnectedProperty.objectBinding {
-        when(it) {
-            null -> fontAwesome[QUESTION_CIRCLE]
-            true -> fontAwesome[CHECK_CIRCLE]
-            false -> fontAwesome[BAN]
+    private val crossoverConnectedIcon = createStateIcon(crossoverConnectedProperty)
+
+    private fun createStateIcon(value: ObservableValue<Boolean>): Binding<Node?> {
+        return value.objectBinding {
+            when (it) {
+                null -> fontAwesome[QUESTION_CIRCLE]
+                true -> fontAwesome[CHECK_CIRCLE]
+                false -> fontAwesome[BAN]
+            }
         }
     }
 
@@ -107,141 +117,174 @@ class MainView : View("Invoice generator") {
     private val invoiceGenerationIcon = SimpleObjectProperty(fontAwesome[QUESTION_CIRCLE])
     private val timesheetGenerationIcon = SimpleObjectProperty(fontAwesome[QUESTION_CIRCLE])
 
-    override val root = form {
-        fieldset("Module bank", fontAwesome[BANK]) {
-            field("Token") {
-                passwordfield(bankTokenProperty)
-                button("", fontAwesome[ARROW_CIRCLE_O_RIGHT]) {
-                    enableWhen { bankTokenProperty.isNotEmpty }
-                    action {
-                        connect()
-                    }
-                }
-                processNode = fontAwesome[GEAR]
-                add(processNode!!)
+    override val root = vbox {
+        splitpane(Orientation.HORIZONTAL) {
+            vboxConstraints {
+                vgrow = Priority.ALWAYS
             }
-
-            field("Accounts") {
-                tableview(accountsProperty) {
-                    enableWhen { connectedToBankProperty }
-                    column("Name", ModulebankAccount::accountName)
-                    // column("Type", ModulebankAccount::category)
-                    column("Currency", ModulebankAccount::currency)
-                    column("Balance", ModulebankAccount::balance)
-
-                    columnResizePolicy = SmartResize.POLICY
-                    selectedAccountProperty.bind(selectionModel.selectedItemProperty())
-
-                    prefHeight = 100.0
-                }
-            }
-
-            field("Operations") {
-                tableview(operationsProperty) {
-                    enableWhen { connectedToBankProperty and selectedAccountProperty.isNotNull }
-                    // column("Id", ModulebankOperation::id)
-                    column("Amount", ModulebankOperation::amount)
-                    column("Currency", ModulebankOperation::currency)
-                    column("Date", ModulebankOperation::executed)
-                    column("Source", ModulebankOperation::contragentName)
-
-                    columnResizePolicy = SmartResize.POLICY
-                    selectedOperationProperty.bind(selectionModel.selectedItemProperty())
-
-                    prefHeight = 200.0
-                }
-            }
-        }
-
-        fieldset("Crossover", fontAwesome[CIRCLE_ALT]) {
-            field("Login") {
-                textfield(crossoverLoginProperty)
-            }
-            field("Password") {
-                passwordfield(crossoverPasswordProperty)
-                button("", fontAwesome[ARROW_CIRCLE_O_RIGHT]) {
-                    enableWhen { crossoverLoginProperty.isNotEmpty and crossoverPasswordProperty.isNotEmpty }
-                    action {
-                        checkCrossoverConnection()
-                    }
-                }
-            }
-            field("Connected") {
-                label(crossoverConnectedProperty, converter = converter { if(it) "Connected" else "Not connected" }) {
-                    graphicProperty().bind(crossoverConnectedIcon)
-                }
-            }
-            field("Payments") {
-                tableview(crossoverPaymentsProperty) {
-                    enableWhen { crossoverConnectedProperty }
-                    column("Amount", CrossoverPayment::amount)
-                    // column("Type", ModulebankAccount::category)
-                    column("Status", CrossoverPayment::status)
-                    column("From",CrossoverPayment::timeSheet).value {
-                        it.value.timeSheet.start_date
-                    }
-                    column("To",CrossoverPayment::timeSheet).value {
-                        it.value.timeSheet.end_date
+            form {
+                fieldset("Module bank", fontAwesome[BANK], Orientation.VERTICAL) {
+                    field("Token") {
+                        passwordfield(bankTokenProperty)
+                        button("", fontAwesome[ARROW_CIRCLE_O_RIGHT]) {
+                            enableWhen { bankTokenProperty.isNotEmpty }
+                            action {
+                                connectToBank()
+                            }
+                        }
+                        add(bankProcessNode)
                     }
 
-                    columnResizePolicy = SmartResize.POLICY
-                    selectedCrossoverPaymentProperty.bind(selectionModel.selectedItemProperty())
+                    field {
+                        label(connectedToBankProperty, converter = converter { if(it) "State: connected" else "State: not connected" }) {
+                            graphicProperty().bind(connectedToBankIcon)
+                        }
+                    }
 
-                    prefHeight = 100.0
+                    field("Accounts", Orientation.VERTICAL) {
+                        tableview(accountsProperty) {
+                            enableWhen { connectedToBankProperty }
+                            column("Name", ModulebankAccount::accountName)
+                            // column("Type", ModulebankAccount::category)
+                            column("Currency", ModulebankAccount::currency)
+                            column("Balance", ModulebankAccount::balance)
+
+                            columnResizePolicy = SmartResize.POLICY
+                            selectedAccountProperty.bind(selectionModel.selectedItemProperty())
+
+                            prefHeight = 200.0
+                        }
+                    }
+
+                    field("Operations", Orientation.VERTICAL) {
+                        tableview(operationsProperty) {
+                            enableWhen { connectedToBankProperty and selectedAccountProperty.isNotNull }
+                            // column("Id", ModulebankOperation::id)
+                            column("Amount", ModulebankOperation::amount)
+                            column("Currency", ModulebankOperation::currency)
+                            column("Date", ModulebankOperation::executed)
+                            column("Source", ModulebankOperation::contragentName)
+
+                            columnResizePolicy = SmartResize.POLICY
+                            selectedOperationProperty.bind(selectionModel.selectedItemProperty())
+
+                            vgrow = Priority.ALWAYS
+                        }
+                    }
                 }
-            }
-        }
 
-        fieldset("Invoice", fontAwesome[FILE]) {
-            field("Template") {
-                label(templatePathProperty.stringBinding { it?.toString() ?: "[Please select]" })
-                button("", fontAwesome[FILE]) {
-                    action {
-                        chooseTemplate()?.let {
-                            templatePath = it
+            }
+            form {
+                fieldset("Crossover", fontAwesome[CIRCLE_ALT], Orientation.VERTICAL) {
+                    field("Login") {
+                        textfield(crossoverLoginProperty)
+                    }
+                    field("Password") {
+                        passwordfield(crossoverPasswordProperty)
+                        button("", fontAwesome[ARROW_CIRCLE_O_RIGHT]) {
+                            enableWhen { crossoverLoginProperty.isNotEmpty and crossoverPasswordProperty.isNotEmpty }
+                            action {
+                                connectToCrossover()
+                            }
+                        }
+                        add(crossoverProcessNode)
+                    }
+                    field {
+                        label(crossoverConnectedProperty, converter = converter { if(it) "State: connected" else "State: not connected" }) {
+                            graphicProperty().bind(crossoverConnectedIcon)
+                        }
+                    }
+                    field("Payments", Orientation.VERTICAL) {
+                        tableview(crossoverPaymentsProperty) {
+                            enableWhen { crossoverConnectedProperty }
+                            column("Amount", CrossoverPayment::amount)
+                            // column("Type", ModulebankAccount::category)
+                            column("Status", CrossoverPayment::status)
+                            column("From",CrossoverPayment::timeSheet).value {
+                                it.value.timeSheet.start_date
+                            }
+                            column("To",CrossoverPayment::timeSheet).value {
+                                it.value.timeSheet.end_date
+                            }
+
+                            columnResizePolicy = SmartResize.POLICY
+                            selectedCrossoverPaymentProperty.bind(selectionModel.selectedItemProperty())
+
+                            vgrow = Priority.ALWAYS
                         }
                     }
                 }
             }
-            field("Number") {
-                textfield(invoiceNumberProperty, NumberStringConverter())
+        }
+        hbox {
+            form {
+                fieldset("Invoice", fontAwesome[FILE]) {
+                    enableDebugBorders()
+                    field("Template") {
+                        label(templatePathProperty.stringBinding { it?.toString() ?: "[Please select]" })
+                        button("", fontAwesome[FILE]) {
+                            action {
+                                chooseTemplate()?.let {
+                                    templatePath = it
+                                }
+                            }
+                        }
+                    }
+                    field("Number") {
+                        textfield(invoiceNumberProperty, NumberStringConverter())
+                    }
+                }
             }
-            field {
-                vbox {
-                    alignment = Pos.CENTER_RIGHT
-                    button("Generate", fontAwesome[GEAR]) {
-                        enableWhen { generationEnabled }
-                        action {
-                            selectTargetFile()?.let {
-                                generate(it)
+            form {
+                hboxConstraints {
+                    hgrow = Priority.ALWAYS
+                }
+
+                fieldset("Generation", fontAwesome[COMMENTS]) {
+                    field {
+                        label("Invoice generation") {
+                            graphicProperty().bind(invoiceGenerationIcon)
+                        }
+                    }
+                    field {
+                        label("Timesheet grab") {
+                            graphicProperty().bind(timesheetGenerationIcon)
+                        }
+                    }
+                    field {
+                        vbox {
+                            button("Generate", fontAwesome[GEAR]) {
+                                enableWhen { generationEnabled }
+                                action {
+                                    selectTargetFile()?.let {
+                                        generate(it)
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
         }
-        fieldset("Generation", fontAwesome[COMMENTS]) {
-            field {
-                label("Invoice generation") {
-                    graphicProperty().bind(invoiceGenerationIcon)
-                }
-            }
-            field {
-                label("Timesheet grab") {
-                    graphicProperty().bind(timesheetGenerationIcon)
-                }
-            }
-        }
+    }
+
+    private fun Region.enableDebugBorders() {
+        border = Border(BorderStroke(Color.RED, BorderStrokeStyle.DOTTED, CornerRadii.EMPTY, BorderWidths.DEFAULT))
     }
 
     init {
-        checkCrossoverConnection()
+        runLater {
+            connectToBank()
+            connectToCrossover()
+        }
     }
 
-    private fun checkCrossoverConnection() {
+    private fun connectToCrossover() {
         if (crossoverLogin?.isNotBlank() == true && crossoverPassword?.isNotBlank() == true) {
             launch(JavaFx) {
-                crossoverConnectionToken = crossoverService.authenticate(crossoverLogin, crossoverPassword)
+                crossoverProcessNode.withRotation {
+                    crossoverConnectionToken = crossoverService.authenticate(crossoverLogin, crossoverPassword)
+                }
             }
         }
     }
@@ -271,15 +314,9 @@ class MainView : View("Invoice generator") {
         icon.value.rotate = 0.0
     }
 
-    init {
-        runLater {
-            connect()
-        }
-    }
-
-    private fun connect() = launch(JavaFx) {
+    private fun connectToBank() = launch(JavaFx) {
         bankToken?.let { token ->
-            processNode?.withRotation {
+            bankProcessNode.withRotation {
                 try {
                     accounts = modulebankService.findAccounts(token).observable()
                     connectedToBank = true
@@ -292,7 +329,7 @@ class MainView : View("Invoice generator") {
 
     private fun updateOperations(account: ModulebankAccount) = launch(JavaFx) {
         bankToken?.let { token ->
-            processNode?.withRotation {
+            bankProcessNode.withRotation {
                 try {
                     operations = modulebankService.findOperations(token, account).observable()
                 } catch (e: Exception) {
@@ -305,14 +342,15 @@ class MainView : View("Invoice generator") {
 
     private fun updateCrossoverPayments() {
         launch(JavaFx) {
-            crossoverPayments = crossoverService
-                    .findPayments(crossoverConnectionToken, LocalDate.now().minusMonths(1), LocalDate.now())
-                    .observable()
+            crossoverProcessNode.withRotation {
+                crossoverPayments = crossoverService
+                        .findPayments(crossoverConnectionToken, LocalDate.now().minusMonths(1), LocalDate.now())
+                        .observable()
+            }
         }
     }
 
     private inline fun <R> Node.withRotation(block: () -> R): R {
-        isDisable = true
         val timeline = timeline {
             keyframe(Duration.seconds(2.0)) {
                 keyvalue(rotateProperty(), 360)
@@ -326,7 +364,6 @@ class MainView : View("Invoice generator") {
             return block()
         } finally {
             timeline.stop()
-            isDisable = false
         }
     }
 
