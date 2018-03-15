@@ -50,6 +50,7 @@ dependencies {
     compile "com.squareup.okhttp3:logging-interceptor:$okhttp_version"
 
     compile "com.fasterxml.jackson.module:jackson-module-kotlin:$jackson_version"
+    compile "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jackson_version"
 
     compile 'fr.opensagres.xdocreport:xdocreport:2.0.1'
     compile 'org.freemarker:freemarker:2.3.20'

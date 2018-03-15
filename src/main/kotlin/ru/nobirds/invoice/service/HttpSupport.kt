@@ -2,11 +2,13 @@ package ru.nobirds.invoice.service
 
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import okhttp3.*
 import java.io.IOException
 import java.io.Reader
+import java.util.*
 import kotlin.coroutines.experimental.suspendCoroutine
 
 class ApiException(private val error: String, private val request: Request) : RuntimeException(buildString {
@@ -14,12 +16,13 @@ class ApiException(private val error: String, private val request: Request) : Ru
     append("Responded with error message: $error")
 })
 
-class ModulebankHttpSupport(private val client: OkHttpClient) {
+class HttpSupport(private val client: OkHttpClient) {
 
     val jsonMediaType = MediaType.parse("application/json")
 
     val objectMapper: ObjectMapper = ObjectMapper()
             .registerKotlinModule()
+            .registerModule(JavaTimeModule())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
     suspend inline fun <reified C : Any> sendRequest(request: Request): C =
@@ -45,6 +48,10 @@ class ModulebankHttpSupport(private val client: OkHttpClient) {
             readValue(send(request), fetcher)
 
     inline fun <reified C : Any, T> readValue(response: Response, fetcher: C.() -> T): T {
+        if (C::class == Unit::class) {
+            return Unit as T
+        }
+
         val reader = response.body()?.charStream() ?: throw IllegalArgumentException()
         return readValue(reader, fetcher)
     }
@@ -52,23 +59,33 @@ class ModulebankHttpSupport(private val client: OkHttpClient) {
     inline fun <reified C : Any, T> readValue(reader: Reader, fetcher: C.() -> T) =
             objectMapper.readValue<C>(reader).fetcher()
 
-    fun createPostRequest(url: HttpUrl, token: String, body: RequestBody = RequestBody.create(jsonMediaType, "")) =
-            Request.Builder().url(url).post(body).withToken(token).build()
-
-    fun url(): HttpUrl.Builder = HttpUrl.Builder().scheme("https")
-            .host("api.modulbank.ru").addPathSegment("v1")
-
-    suspend inline fun <reified R: Any> post(url: HttpUrl, token: String): R {
-        return post<Unit, R>(url, token)
+    suspend inline fun <reified R: Any> get(url: HttpUrl, noinline auth: Request.Builder.()->Request.Builder): R {
+        return sendRequest(Request.Builder().get().url(url).auth().build())
     }
 
-    suspend inline fun <T : Any, reified R: Any> post(url: HttpUrl, token: String, request: T? = null): R {
+    suspend inline fun <reified R: Any> post(url: HttpUrl, token: String): R {
+        return post<Unit, R>(url) { withToken(token) }
+    }
+
+    suspend inline fun <reified R: Any, T: Any> post(url: HttpUrl, request: T, token: String): R {
+        return post(url, request) { withToken(token) }
+    }
+
+    suspend inline fun <reified R: Any> post(url: HttpUrl, noinline auth: Request.Builder.()->Request.Builder): R {
+        return post<Unit, R>(url, null, auth)
+    }
+
+    suspend inline fun <T : Any, reified R: Any> post(url: HttpUrl, request: T? = null,
+                                                      noinline auth: Request.Builder.()->Request.Builder): R {
         val body = RequestBody.create(jsonMediaType,
                 request?.let { objectMapper.writeValueAsBytes(it) } ?: byteArrayOf())
 
-        return sendRequest(createPostRequest(url, token, body))
+        return sendRequest(Request.Builder().url(url).post(body).auth().build())
     }
 
 }
 
 fun Request.Builder.withToken(token: String): Request.Builder = header("Authorization", "Bearer $token")
+fun Request.Builder.withBasic(username: String, password: String): Request.Builder =
+        header("Authorization", "Basic ${Base64.getEncoder().encodeToString("$username:$password".toByteArray())}")
+fun Request.Builder.withXAuthToken(token: String): Request.Builder = header("X-Auth-Token", token)

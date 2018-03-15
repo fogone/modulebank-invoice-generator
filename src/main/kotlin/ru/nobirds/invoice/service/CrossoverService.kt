@@ -1,18 +1,34 @@
 package ru.nobirds.invoice.service
 
 import io.github.bonigarcia.wdm.WebDriverManager
+import okhttp3.HttpUrl
 import org.openqa.selenium.*
 import org.openqa.selenium.chrome.ChromeDriver
 import org.openqa.selenium.chrome.ChromeOptions
 import org.openqa.selenium.support.ui.ExpectedConditions
 import org.openqa.selenium.support.ui.FluentWait
 import java.io.File
+import java.math.BigDecimal
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.time.LocalDate
 import java.util.concurrent.TimeUnit
 
-class CrossoverTimesheetService(private val username: String, private val password: String) {
+enum class CrossoverPaymentStatus {
+    PROCESSING, PROCESSED, PENDING, CURRENT
+}
+
+data class CrossoverToken(val token: String)
+data class CrossoverPayment(val platform: String, val team: CrossoverTeam,
+                            val timeSheet: CrossoverTimesheet,
+                            val weeklyLimitHours: Long, val amount: BigDecimal,
+                            val status: CrossoverPaymentStatus)
+
+data class CrossoverTeam(val id: Long, val name: String, val company: CrossoverCompany)
+data class CrossoverCompany(val id: Long, val name: String)
+data class CrossoverTimesheet(val start_date: LocalDate, val end_date: LocalDate, val billed_minutes: Long)
+
+class CrossoverService(private val httpSupport: HttpSupport) {
 
     companion object {
         private const val TAB = '\t'
@@ -28,12 +44,23 @@ class CrossoverTimesheetService(private val username: String, private val passwo
         WebDriverManager.chromedriver().setup()
     }
 
-    fun generate(weekDate: LocalDate, output: File) {
+    suspend fun authenticate(username: String, password: String): String {
+        val httpUrl = HttpUrl.parse("https://api.crossover.com/api/identity/authentication")
+
+        return httpSupport.post<CrossoverToken>(httpUrl!!) { withBasic(username, password) }.token
+    }
+
+    suspend fun findPayments(token: String, from: LocalDate, to: LocalDate): List<CrossoverPayment> {
+        val url = HttpUrl.parse("https://api.crossover.com/api/identity/users/current/payments?from=$from&to=$to")
+        return httpSupport.get(url!!) { withXAuthToken(token) }
+    }
+
+    fun grabTimesheetScreenTo(username: String, password: String, weekDate: LocalDate, output: File) {
         val driver = ChromeDriver(DEFAULT_CHROME_OPTIONS)
 
         try {
             val fluentWait = FluentWait(driver)
-                    .withTimeout(30, TimeUnit.SECONDS)
+                    .withTimeout(300, TimeUnit.SECONDS)
                     .pollingEvery(200, TimeUnit.MILLISECONDS)
                     .ignoring(NoSuchElementException::class.java)
 
@@ -70,12 +97,3 @@ private fun WebDriver.isTextVisible(textToFind: String): Boolean {
         false
     }
 }
-
-fun main(args: Array<String>) {
-    val username = args[0]
-    val password = args[1]
-    val weekDate = LocalDate.parse(args[2])
-
-    CrossoverTimesheetService(username, password).generate(weekDate, File(weekDate.toString() + ".png"))
-}
-
