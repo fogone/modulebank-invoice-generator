@@ -21,12 +21,13 @@ enum class CrossoverPaymentStatus {
 data class CrossoverToken(val token: String)
 data class CrossoverPayment(val platform: String, val team: CrossoverTeam,
                             val timeSheet: CrossoverTimesheet,
-                            val weeklyLimitHours: Long, val amount: BigDecimal,
+                            val weeklyLimitHours: Long,
+                            val amount: BigDecimal,
                             val status: CrossoverPaymentStatus)
 
 data class CrossoverTeam(val id: Long, val name: String, val company: CrossoverCompany)
 data class CrossoverCompany(val id: Long, val name: String)
-data class CrossoverTimesheet(val start_date: LocalDate, val end_date: LocalDate, val billed_minutes: Long)
+data class CrossoverTimesheet(val start_date: LocalDate, val end_date: LocalDate, val billed_minutes: Long, val overtime_minutes: Long)
 
 class CrossoverService(private val httpSupport: HttpSupport) {
 

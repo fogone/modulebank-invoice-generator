@@ -104,12 +104,16 @@ class MainView : View("Invoice generator") {
     private val templatePathProperty = SimpleObjectProperty<File?>().persistent(config, "templatePath", null)
     private var templatePath: File? by templatePathProperty
 
+    private val outputPathProperty = SimpleObjectProperty<File?>().persistent(config, "outputPath", null)
+    private var outputPath: File? by outputPathProperty
+
     private val invoiceNumberProperty = SimpleIntegerProperty().persistent(config, "invoiceNumber", 1)
     private var invoiceNumber: Int by invoiceNumberProperty
 
     private val generationEnabled = selectedOperationProperty.isNotNull and
             (crossoverLoginProperty.isNotNull and crossoverPasswordProperty.isNotNull) and
             templatePathProperty.booleanBinding { it?.exists() == true } and
+            outputPathProperty.booleanBinding { it?.exists() == true && it.isDirectory == true } and
             invoiceNumberProperty.greaterThan(0) and
             selectedCrossoverPaymentProperty.isNotNull and
             crossoverConnectedProperty
@@ -162,11 +166,13 @@ class MainView : View("Invoice generator") {
                             // column("Id", ModulebankOperation::id)
                             column("Amount", ModulebankOperation::amount)
                             column("Currency", ModulebankOperation::currency)
-                            column("Date", ModulebankOperation::executed)
-                            column("Source", ModulebankOperation::contragentName)
+                            val dateColumn = column("Date", ModulebankOperation::executed)
+                            column("Prupose", ModulebankOperation::paymentPurpose)
 
                             columnResizePolicy = SmartResize.POLICY
                             selectedOperationProperty.bind(selectionModel.selectedItemProperty())
+
+                            sortOrder.add(dateColumn)
 
                             vgrow = Priority.ALWAYS
                         }
@@ -200,7 +206,14 @@ class MainView : View("Invoice generator") {
                             column("Amount", CrossoverPayment::amount)
                             // column("Type", ModulebankAccount::category)
                             column("Status", CrossoverPayment::status)
-                            column("From",CrossoverPayment::timeSheet).value {
+                            column("Billed", CrossoverPayment::timeSheet).value {
+                                it.value.timeSheet.billed_minutes
+                            }
+                            column("Overtime", CrossoverPayment::timeSheet).value {
+                                it.value.timeSheet.overtime_minutes
+                            }
+                            val fromColumn = column("From", CrossoverPayment::timeSheet)
+                            fromColumn.value {
                                 it.value.timeSheet.start_date
                             }
                             column("To",CrossoverPayment::timeSheet).value {
@@ -209,6 +222,8 @@ class MainView : View("Invoice generator") {
 
                             columnResizePolicy = SmartResize.POLICY
                             selectedCrossoverPaymentProperty.bind(selectionModel.selectedItemProperty())
+
+                            sortOrder.add(fromColumn)
 
                             vgrow = Priority.ALWAYS
                         }
@@ -219,13 +234,22 @@ class MainView : View("Invoice generator") {
         hbox {
             form {
                 fieldset("Invoice", fontAwesome[FILE]) {
-                    enableDebugBorders()
                     field("Template") {
                         label(templatePathProperty.stringBinding { it?.toString() ?: "[Please select]" })
                         button("", fontAwesome[FILE]) {
                             action {
                                 chooseTemplate()?.let {
                                     templatePath = it
+                                }
+                            }
+                        }
+                    }
+                    field("Output dir") {
+                        label(outputPathProperty.stringBinding { it?.toString() ?: "[Please select]" })
+                        button("", fontAwesome[FILE]) {
+                            action {
+                                selectTargetFile()?.let {
+                                    outputPath = it
                                 }
                             }
                         }
@@ -256,9 +280,7 @@ class MainView : View("Invoice generator") {
                             button("Generate", fontAwesome[GEAR]) {
                                 enableWhen { generationEnabled }
                                 action {
-                                    selectTargetFile()?.let {
-                                        generate(it)
-                                    }
+                                    generate()
                                 }
                             }
                         }
@@ -289,18 +311,24 @@ class MainView : View("Invoice generator") {
         }
     }
 
-    private fun generate(outputFile: File) {
+    private fun generate() {
         val selectedWeek = selectedCrossoverPayment.timeSheet.start_date
+
+        val weekDirectory = outputPath!!.resolve(selectedWeek.toString())
+
+        weekDirectory.mkdirs()
+
+        val number = invoiceNumber
 
         invoiceGenerationIcon.animate {
             val money = Money(selectedOperation.amount, Currency.getInstance(selectedOperation.currency))
-            invoiceService.generate(templatePath!!, invoiceNumber, selectedWeek, money,
-                    outputFile.resolve("invoice-$selectedWeek.pdf"))
+            invoiceService.generate(templatePath!!, number, selectedWeek, money,
+                    weekDirectory.resolve("invoice-$selectedWeek.$number.pdf"))
         }
 
         timesheetGenerationIcon.animate {
             crossoverService.grabTimesheetScreenTo(crossoverLogin, crossoverPassword,
-                    selectedWeek, outputFile.resolve("timesheet-$selectedWeek.png"))
+                    selectedWeek, weekDirectory.resolve("timesheet-$selectedWeek.$number.png"))
         }
 
         invoiceNumber++
@@ -344,7 +372,7 @@ class MainView : View("Invoice generator") {
         launch(JavaFx) {
             crossoverProcessNode.withRotation {
                 crossoverPayments = crossoverService
-                        .findPayments(crossoverConnectionToken, LocalDate.now().minusMonths(1), LocalDate.now())
+                        .findPayments(crossoverConnectionToken, LocalDate.now().minusMonths(3), LocalDate.now())
                         .observable()
             }
         }
