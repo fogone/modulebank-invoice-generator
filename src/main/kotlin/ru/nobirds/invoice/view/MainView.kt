@@ -1,6 +1,7 @@
 package ru.nobirds.invoice.view
 
 import javafx.beans.binding.Binding
+import javafx.beans.binding.Bindings
 import javafx.beans.property.*
 import javafx.beans.value.ObservableValue
 import javafx.geometry.Orientation
@@ -20,6 +21,7 @@ import ru.nobirds.invoice.persistent
 import ru.nobirds.invoice.service.*
 import tornadofx.*
 import java.io.File
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.*
 
@@ -110,6 +112,9 @@ class MainView : View("Invoice generator") {
     private val invoiceNumberProperty = SimpleIntegerProperty().persistent(config, "invoiceNumber", 1)
     private var invoiceNumber: Int by invoiceNumberProperty
 
+    private val invoiceDateProperty = SimpleObjectProperty(LocalDate.now().minusDays(14))
+    private var invoiceDate by invoiceDateProperty
+
     private val generationEnabled = selectedOperationProperty.isNotNull and
             (crossoverLoginProperty.isNotNull and crossoverPasswordProperty.isNotNull) and
             templatePathProperty.booleanBinding { it?.exists() == true } and
@@ -162,7 +167,7 @@ class MainView : View("Invoice generator") {
 
                     field("Operations", Orientation.VERTICAL) {
                         tableview(operationsProperty) {
-                            enableWhen { connectedToBankProperty and selectedAccountProperty.isNotNull }
+                            enableWhen { connectedToBankProperty and selectedAccountProperty.isNotNull and Bindings.isNotEmpty(crossoverPaymentsProperty) }
                             // column("Id", ModulebankOperation::id)
                             column("Amount", ModulebankOperation::amount)
                             column("Currency", ModulebankOperation::currency)
@@ -221,7 +226,16 @@ class MainView : View("Invoice generator") {
                             }
 
                             columnResizePolicy = SmartResize.POLICY
+
                             selectedCrossoverPaymentProperty.bind(selectionModel.selectedItemProperty())
+
+                            selectedOperationProperty.onChange {
+                                if (it != null) {
+                                    findCrossoverPayment(it)?.let {
+                                        selectionModel.select(it)
+                                    }
+                                }
+                            }
 
                             sortOrder.add(fromColumn)
 
@@ -290,6 +304,15 @@ class MainView : View("Invoice generator") {
         }
     }
 
+    private fun findCrossoverPayment(operation: ModulebankOperation): CrossoverPayment? {
+        val from = operation.created.minusDays(14).withDayOfWeek(DayOfWeek.MONDAY)
+        val to = from.plusDays(7)
+
+        println("$from - $to")
+
+        return crossoverPayments?.firstOrNull { it.timeSheet.start_date == from && it.timeSheet.end_date == to }
+    }
+
     private fun Region.enableDebugBorders() {
         border = Border(BorderStroke(Color.RED, BorderStrokeStyle.DOTTED, CornerRadii.EMPTY, BorderWidths.DEFAULT))
     }
@@ -321,9 +344,8 @@ class MainView : View("Invoice generator") {
         val number = invoiceNumber
 
         invoiceGenerationIcon.animate {
-            val money = Money(selectedOperation.amount, Currency.getInstance(selectedOperation.currency))
-            invoiceService.generate(templatePath!!, number, selectedWeek, money,
-                    weekDirectory.resolve("invoice-$selectedWeek.$number.pdf"))
+            invoiceService.generate(templatePath!!, weekDirectory.resolve("invoice-$selectedWeek.$number.pdf"),
+                    number, selectedAccount!!, selectedOperation!!, selectedCrossoverPayment)
         }
 
         timesheetGenerationIcon.animate {

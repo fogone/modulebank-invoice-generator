@@ -35,13 +35,20 @@ class InvoiceService {
 
     private val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
-    fun generate(template: File, number: Int, weekDate: LocalDate, sum: Money, output: File) {
+    fun generate(template: File, output: File, invoiceNumber: Int,
+                 selectedAccount: ModulebankAccount, selectedOperation: ModulebankOperation,
+                 selectedCrossoverPayment: CrossoverPayment) {
+
         require(template.exists()) { "Template file doesn't exists" }
+
+        val weekDate = selectedCrossoverPayment.timeSheet.start_date
+
+        val money = Money(selectedOperation.amount, Currency.getInstance(selectedOperation.currency))
 
         val firstDayOfWeek = weekDate.withDayOfWeek(DayOfWeek.MONDAY)
         val lastDayOfWeek = weekDate.withDayOfWeek(DayOfWeek.SUNDAY)
 
-        val longSum = sum.format()
+        val longSum = money.format()
 
         FileInputStream(template).use { templateStream ->
             FileOutputStream(output).use { out ->
@@ -49,13 +56,14 @@ class InvoiceService {
                         .loadReport(templateStream, FreemarkerTemplateEngine())
 
                 val context = report.createContext(mapOf(
-                        "invoiceNumber" to number,
-                        "documentDate" to dateFormatter.format(LocalDate.now()),
-                        "sum" to sum.value,
+                        "accountNumber" to selectedAccount.number.toString(),
+                        "invoiceNumber" to invoiceNumber,
+                        "documentDate" to dateFormatter.format(selectedOperation.created),
+                        "sum" to money.value,
                         "longSum" to longSum,
                         "fromDate" to dateFormatter.format(firstDayOfWeek),
                         "toDate" to dateFormatter.format(lastDayOfWeek),
-                        "currency" to sum.currency.currencyCode
+                        "currency" to money.currency.currencyCode
                 ))
 
                 val options = Options.getTo(ConverterTypeTo.PDF)
@@ -67,6 +75,6 @@ class InvoiceService {
 
 }
 
-private fun LocalDate.withDayOfWeek(dayOrWeek: DayOfWeek): LocalDate {
+fun LocalDate.withDayOfWeek(dayOrWeek: DayOfWeek): LocalDate {
     return with(ChronoField.DAY_OF_WEEK, dayOrWeek.value.toLong())
 }

@@ -11,7 +11,7 @@ data class ModulebankAccount(val id: String, val accountName: String, val number
 
 data class ModulebankOperation(val id: String, val companyId: String, val status: ModulebankOperationStatus,
                                val category: ModulebankOperationsCategory, val currency: String, val amount: BigDecimal,
-                               val executed: LocalDate, val contragentName: String, val paymentPurpose: String)
+                               val created: LocalDate, val executed: LocalDate, val contragentName: String, val paymentPurpose: String)
 
 enum class ModulebankOperationStatus {
     Received
