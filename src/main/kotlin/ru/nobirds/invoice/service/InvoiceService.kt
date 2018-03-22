@@ -40,7 +40,8 @@ class InvoiceService {
     private val dateFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
 
     fun generate(template: File, output: File, invoiceNumber: Int,
-                 selectedAccount: ModulebankAccount, selectedOperation: ModulebankOperation,
+                 invoiceDate: LocalDate, selectedAccount: ModulebankAccount,
+                 selectedOperation: ModulebankOperation,
                  selectedCrossoverPayment: CrossoverPayment) {
 
         require(template.exists()) { "Template file doesn't exists" }
@@ -63,7 +64,7 @@ class InvoiceService {
                 val context = report.createContext(mapOf(
                         "accountNumber" to selectedAccount.number.toString(),
                         "invoiceNumber" to invoiceNumber,
-                        "documentDate" to dateFormatter.format(selectedOperation.created),
+                        "documentDate" to dateFormatter.format(invoiceDate),
                         "sum" to sum,
                         "longSum" to longSum,
                         "fromDate" to dateFormatter.format(firstDayOfWeek),
