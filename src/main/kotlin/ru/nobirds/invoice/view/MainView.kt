@@ -23,7 +23,6 @@ import tornadofx.*
 import java.io.File
 import java.time.DayOfWeek
 import java.time.LocalDate
-import java.util.*
 
 class MainView : View("Invoice generator") {
 
@@ -112,7 +111,7 @@ class MainView : View("Invoice generator") {
     private val invoiceNumberProperty = SimpleIntegerProperty().persistent(config, "invoiceNumber", 1)
     private var invoiceNumber: Int by invoiceNumberProperty
 
-    private val invoiceDateProperty = SimpleObjectProperty(LocalDate.now().minusDays(14))
+    private val invoiceDateProperty = SimpleObjectProperty(LocalDate.now())
     private var invoiceDate by invoiceDateProperty
 
     private val generationEnabled = selectedOperationProperty.isNotNull and
@@ -271,8 +270,18 @@ class MainView : View("Invoice generator") {
                     field("Number") {
                         textfield(invoiceNumberProperty, NumberStringConverter())
                     }
+                    field("Date") {
+                        datepicker(invoiceDateProperty) {
+                            selectedOperationProperty.onChange {
+                                if (it != null) {
+                                    value = it.created
+                                }
+                            }
+                        }
+                    }
                 }
             }
+
             form {
                 hboxConstraints {
                     hgrow = Priority.ALWAYS
@@ -345,7 +354,7 @@ class MainView : View("Invoice generator") {
 
         invoiceGenerationIcon.animate {
             invoiceService.generate(templatePath!!, weekDirectory.resolve("invoice-$selectedWeek.$number.pdf"),
-                    number, selectedAccount!!, selectedOperation!!, selectedCrossoverPayment)
+                    number, invoiceDate, selectedAccount!!, selectedOperation!!, selectedCrossoverPayment)
         }
 
         timesheetGenerationIcon.animate {
