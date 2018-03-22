@@ -11,6 +11,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.math.BigDecimal
+import java.text.NumberFormat
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -19,16 +20,19 @@ import java.util.*
 
 data class Money(val value: BigDecimal, val currency: Currency) {
 
-    private val formatter by lazy { createMoneyFormatter(currency) }
+    private val locale = Locale.forLanguageTag("ru")
+    private val spellOutFormatter by lazy { createSpellOutFormatter(currency) }
+    private val numberFormatter = NumberFormat.getInstance(locale)
 
-    private fun createMoneyFormatter(currency: Currency) =
-            RuleBasedNumberFormat(ULocale.forLocale(Locale.forLanguageTag("ru")),
+    private fun createSpellOutFormatter(currency: Currency) =
+            RuleBasedNumberFormat(ULocale.forLocale(locale),
                     RuleBasedNumberFormat.SPELLOUT).apply {
                 this.currency = IcuCurrency.fromJavaCurrency(currency)
             }
 
-    fun format(): String = formatter.format(value)
+    fun formatNumber(): String = numberFormatter.format(value)
 
+    fun formatSpellOut(): String = spellOutFormatter.format(value)
 }
 
 class InvoiceService {
@@ -48,7 +52,8 @@ class InvoiceService {
         val firstDayOfWeek = weekDate.withDayOfWeek(DayOfWeek.MONDAY)
         val lastDayOfWeek = weekDate.withDayOfWeek(DayOfWeek.SUNDAY)
 
-        val longSum = money.format()
+        val sum = money.formatNumber()
+        val longSum = money.formatSpellOut()
 
         FileInputStream(template).use { templateStream ->
             FileOutputStream(output).use { out ->
@@ -59,7 +64,7 @@ class InvoiceService {
                         "accountNumber" to selectedAccount.number.toString(),
                         "invoiceNumber" to invoiceNumber,
                         "documentDate" to dateFormatter.format(selectedOperation.created),
-                        "sum" to money.value,
+                        "sum" to sum,
                         "longSum" to longSum,
                         "fromDate" to dateFormatter.format(firstDayOfWeek),
                         "toDate" to dateFormatter.format(lastDayOfWeek),
