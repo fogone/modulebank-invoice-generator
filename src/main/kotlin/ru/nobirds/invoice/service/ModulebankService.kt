@@ -10,8 +10,12 @@ data class ModulebankAccount(val id: String, val accountName: String, val number
                              val currency: String, val balance: BigDecimal, val category: ModulebankAccountCategory)
 
 data class ModulebankOperation(val id: String, val companyId: String, val status: ModulebankOperationStatus,
+                               val docNumber: Long,
                                val category: ModulebankOperationsCategory, val currency: String, val amount: BigDecimal,
-                               val created: LocalDate, val executed: LocalDate, val contragentName: String, val paymentPurpose: String)
+                               val created: LocalDate, val executed: LocalDate,
+                               val contragentName: String, val contragentBankAccountNumber: BigInteger,
+                               val contragentBankName: String,
+                               val paymentPurpose: String)
 
 enum class ModulebankOperationStatus {
     Received

@@ -5,6 +5,7 @@ import javafx.beans.binding.Bindings
 import javafx.beans.property.*
 import javafx.beans.value.ObservableValue
 import javafx.geometry.Orientation
+import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.layout.*
 import javafx.scene.paint.Color
@@ -167,11 +168,14 @@ class MainView : View("Invoice generator") {
                     field("Operations", Orientation.VERTICAL) {
                         tableview(operationsProperty) {
                             enableWhen { connectedToBankProperty and selectedAccountProperty.isNotNull and Bindings.isNotEmpty(crossoverPaymentsProperty) }
-                            // column("Id", ModulebankOperation::id)
-                            column("Amount", ModulebankOperation::amount)
+                            column("Amount", ModulebankOperation::amount) {
+                                style {
+                                    alignment = Pos.CENTER_RIGHT
+                                }
+                            }
                             column("Currency", ModulebankOperation::currency)
-                            val dateColumn = column("Date", ModulebankOperation::executed)
-                            column("Prupose", ModulebankOperation::paymentPurpose)
+                            column("Created", ModulebankOperation::created)
+                            val dateColumn = column("Executed", ModulebankOperation::executed)
 
                             columnResizePolicy = SmartResize.POLICY
                             selectedOperationProperty.bind(selectionModel.selectedItemProperty())
@@ -207,15 +211,29 @@ class MainView : View("Invoice generator") {
                     field("Payments", Orientation.VERTICAL) {
                         tableview(crossoverPaymentsProperty) {
                             enableWhen { crossoverConnectedProperty }
-                            column("Amount", CrossoverPayment::amount)
+                            column("Amount", CrossoverPayment::amount) {
+                                style {
+                                    alignment = Pos.CENTER_RIGHT
+                                }
+                            }
                             // column("Type", ModulebankAccount::category)
                             column("Status", CrossoverPayment::status)
-                            column("Billed", CrossoverPayment::timeSheet).value {
-                                it.value.timeSheet.billed_minutes
+                            column("Billed", CrossoverPayment::timeSheet) {
+                                style {
+                                    alignment = Pos.CENTER_RIGHT
+                                }
+                            }.value {
+                                formatDuration(it.value.timeSheet.billed_minutes)
                             }
-                            column("Overtime", CrossoverPayment::timeSheet).value {
-                                it.value.timeSheet.overtime_minutes
+
+                            column("Overtime", CrossoverPayment::timeSheet) {
+                                style {
+                                    alignment = Pos.CENTER_RIGHT
+                                }
+                            }.value {
+                                formatDuration(it.value.timeSheet.overtime_minutes)
                             }
+
                             val fromColumn = column("From", CrossoverPayment::timeSheet)
                             fromColumn.value {
                                 it.value.timeSheet.start_date
@@ -246,7 +264,7 @@ class MainView : View("Invoice generator") {
         }
         hbox {
             form {
-                fieldset("Invoice", fontAwesome[FILE]) {
+                fieldset("Template", fontAwesome[FILE_TEXT]) {
                     field("Template") {
                         label(templatePathProperty.stringBinding { it?.toString() ?: "[Please select]" })
                         button("", fontAwesome[FILE]) {
@@ -267,6 +285,13 @@ class MainView : View("Invoice generator") {
                             }
                         }
                     }
+                }
+            }
+
+            separator(Orientation.VERTICAL)
+
+            form {
+                fieldset("Invoice", fontAwesome[BITCOIN]) {
                     field("Number") {
                         textfield(invoiceNumberProperty, NumberStringConverter())
                     }
@@ -282,11 +307,17 @@ class MainView : View("Invoice generator") {
                 }
             }
 
-            form {
+            separator(Orientation.VERTICAL)
+
+            region {
                 hboxConstraints {
                     hgrow = Priority.ALWAYS
                 }
+            }
 
+            separator(Orientation.VERTICAL)
+
+            form {
                 fieldset("Generation", fontAwesome[COMMENTS]) {
                     field {
                         label("Invoice generation") {
@@ -310,6 +341,23 @@ class MainView : View("Invoice generator") {
                     }
                 }
             }
+        }
+    }
+
+    private fun formatDuration(minutes: Long): String = buildString {
+        val hours = minutes / 60
+
+        if (hours > 0) {
+            append("${hours}h")
+        }
+
+        val mins = minutes % 60
+
+        if (mins > 0) {
+            if (hours > 0) {
+                append(" ")
+            }
+            append("${mins}m")
         }
     }
 
