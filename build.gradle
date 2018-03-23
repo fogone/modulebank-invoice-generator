@@ -73,7 +73,7 @@ jar {
     manifest {
         attributes(
                 'Class-Path': configurations.compile.collect { it.getName() }.join(' '),
-                'Main-Class': 'ru.nobirds.invoice.app.MyApp'
+                'Main-Class': 'ru.nobirds.invoice.app.InvoiceGeneratorApplicationKt'
         )
     }
     from(configurations.compile.collect { entry -> zipTree(entry) }) {
