@@ -69,7 +69,10 @@ class InvoiceService {
                         "longSum" to longSum,
                         "fromDate" to dateFormatter.format(firstDayOfWeek),
                         "toDate" to dateFormatter.format(lastDayOfWeek),
-                        "currency" to money.currency.currencyCode
+                        "currency" to money.currency.currencyCode,
+                        "contragentName" to selectedOperation.contragentName,
+                        "contragentBankName" to selectedOperation.contragentBankName,
+                        "contragentBankAccountNumber" to selectedOperation.contragentBankAccountNumber
                 ))
 
                 val options = Options.getTo(ConverterTypeTo.PDF)
