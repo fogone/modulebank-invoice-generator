@@ -4,6 +4,7 @@
 - Use generated token in generator ui
 - Prepare docx or odt document with invoice template using variables like ${someName} for replacement
 - Available variables:
+    - accountNumber
     - invoiceNumber
     - documentDate
     - sum
@@ -11,3 +12,10 @@
     - fromDate
     - toDate
     - currency
+    - contragentName 
+    - contragentBankName 
+    - contragentBankAccountNumber 
+
+# Build
+
+[Build](https://travis-ci.org/fogone/modulebank-invoice-generator.svg?branch=master)
