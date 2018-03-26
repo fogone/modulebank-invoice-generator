@@ -7,17 +7,17 @@
 
 |Variable|Description|
 |--------|-----------|
-|accountNumber|Account number in module bank|
-|invoiceNumber|Ordered number of invoice document| 
-|documentDate|Invoice date|
-|sum|Invoice sum|
-|longSum|Invoice sum in words|
-|fromDate|Start working date|
-|toDate|ENd working date|
-|currency|Currency|
-|contragentName|Contragent name| 
-|contragentBankName|Contragent bank name| 
-|contragentBankAccountNumber|Contragent bank account number| 
+|`accountNumber`|Account number in module bank|
+|`invoiceNumber`|Ordered number of invoice document| 
+|`documentDate`|Invoice date|
+|`sum`|Invoice sum|
+|`longSum`|Invoice sum in words|
+|`fromDate`|Start working date|
+|`toDate`|ENd working date|
+|`currency`|Currency|
+|`contragentName`|Contragent name| 
+|`contragentBankName`|Contragent bank name| 
+|`contragentBankAccountNumber`|Contragent bank account number| 
 
 # Build
 
