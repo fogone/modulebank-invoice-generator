@@ -4,18 +4,21 @@
 - Use generated token in generator ui
 - Prepare docx or odt document with invoice template using variables like ${someName} for replacement
 - Available variables:
-    - accountNumber
-    - invoiceNumber
-    - documentDate
-    - sum
-    - longSum
-    - fromDate
-    - toDate
-    - currency
-    - contragentName 
-    - contragentBankName 
-    - contragentBankAccountNumber 
+
+|Variable|Description|
+|--------|-----------|
+|accountNumber|Account number in module bank|
+|invoiceNumber|Ordered number of invoice document| 
+|documentDate|Invoice date|
+|sum|Invoice sum|
+|longSum|Invoice sum in words|
+|fromDate|Start working date|
+|toDate|ENd working date|
+|currency|Currency|
+|contragentName|Contragent name| 
+|contragentBankName|Contragent bank name| 
+|contragentBankAccountNumber|Contragent bank account number| 
 
 # Build
 
-[Build](https://travis-ci.org/fogone/modulebank-invoice-generator.svg?branch=master)
+![Build](https://travis-ci.org/fogone/modulebank-invoice-generator.svg?branch=master)
