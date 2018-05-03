@@ -38,7 +38,7 @@ class HttpSupport(private val client: OkHttpClient) {
                 if (response.isSuccessful) {
                     c.resume(response)
                 } else {
-                    c.resumeWithException(ApiException("", request)) // todo
+                    c.resumeWithException(ApiException("Error: ${response.code()} ${response.message()}", request))
                 }
             }
         })
