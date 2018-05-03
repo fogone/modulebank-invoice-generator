@@ -35,7 +35,7 @@ class CrossoverService(private val httpSupport: HttpSupport) {
         private const val TAB = '\t'
 
         private val DEFAULT_CHROME_OPTIONS = ChromeOptions().apply {
-            addArguments("--window-size=1920,1080", "--headless", "--disable-gpu", "--no-sandbox")
+//            addArguments("--window-size=1920,1080", "--headless", "--disable-gpu", "--no-sandbox")
         }
     }
 
@@ -68,6 +68,10 @@ class CrossoverService(private val httpSupport: HttpSupport) {
             driver.get("https://app.crossover.com/x/dashboard/contractor/my-dashboard?date=$weekDate")
 
             // wait for login form
+            fluentWait.until(ExpectedConditions.elementToBeClickable(email))
+
+            // refresh page to hide accept cookies popup
+            driver.navigate().refresh()
             fluentWait.until(ExpectedConditions.elementToBeClickable(email))
 
             // fill credentials and login
