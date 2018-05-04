@@ -65,9 +65,14 @@ class CrossoverService(private val httpSupport: HttpSupport) {
                     .pollingEvery(200, TimeUnit.MILLISECONDS)
                     .ignoring(NoSuchElementException::class.java)
 
-            driver.get("https://app.crossover.com/x/dashboard/contractor/my-dashboard?date=$weekDate")
+            val targetUrl = "https://app.crossover.com/x/dashboard/contractor/my-dashboard?date=$weekDate"
+            driver.get(targetUrl)
 
             // wait for login form
+            fluentWait.until(ExpectedConditions.elementToBeClickable(email))
+
+            // refresh page to hide accept cookies popup
+            driver.get(targetUrl)
             fluentWait.until(ExpectedConditions.elementToBeClickable(email))
 
             // fill credentials and login
