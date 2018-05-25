@@ -22,6 +22,7 @@ import ru.nobirds.invoice.persistent
 import ru.nobirds.invoice.service.*
 import tornadofx.*
 import java.io.File
+import java.math.BigDecimal
 import java.time.DayOfWeek
 import java.time.LocalDate
 
@@ -218,28 +219,28 @@ class MainView : View("Invoice generator") {
                             }
                             // column("Type", ModulebankAccount::category)
                             column("Status", CrossoverPayment::status)
-                            column("Billed", CrossoverPayment::timeSheet) {
+                            column("Billed", CrossoverPayment::paidHours) {
                                 style {
                                     alignment = Pos.CENTER_RIGHT
                                 }
                             }.value {
-                                formatDuration(it.value.timeSheet.billed_minutes)
+                                formatDuration(it.value.paidHours)
                             }
 
-                            column("Overtime", CrossoverPayment::timeSheet) {
+                            column("Overtime", CrossoverPayment::paidHours) {
                                 style {
                                     alignment = Pos.CENTER_RIGHT
                                 }
                             }.value {
-                                formatDuration(it.value.timeSheet.overtime_minutes)
+                                formatDuration(it.value.paidHours - it.value.weeklyHourLimit)
                             }
 
-                            val fromColumn = column("From", CrossoverPayment::timeSheet)
+                            val fromColumn = column("From", CrossoverPayment::periodStartDate)
                             fromColumn.value {
-                                it.value.timeSheet.start_date
+                                it.value.periodStartDate
                             }
-                            column("To",CrossoverPayment::timeSheet).value {
-                                it.value.timeSheet.end_date
+                            column("To",CrossoverPayment::periodEndDate).value {
+                                it.value.periodEndDate
                             }
 
                             columnResizePolicy = SmartResize.POLICY
@@ -344,7 +345,8 @@ class MainView : View("Invoice generator") {
         }
     }
 
-    private fun formatDuration(minutes: Long): String = buildString {
+    private fun formatDuration(hours: BigDecimal): String = buildString {
+        val minutes = (hours * 60.toBigDecimal()).toInt()
         val hours = minutes / 60
 
         if (hours > 0) {
@@ -363,11 +365,8 @@ class MainView : View("Invoice generator") {
 
     private fun findCrossoverPayment(operation: ModulebankOperation): CrossoverPayment? {
         val from = operation.created.minusDays(14).withDayOfWeek(DayOfWeek.MONDAY)
-        val to = from.plusDays(7)
 
-        println("$from - $to")
-
-        return crossoverPayments?.firstOrNull { it.timeSheet.start_date == from && it.timeSheet.end_date == to }
+        return crossoverPayments?.firstOrNull { it.periodStartDate == from }
     }
 
     private fun Region.enableDebugBorders() {
@@ -392,7 +391,7 @@ class MainView : View("Invoice generator") {
     }
 
     private fun generate() {
-        val selectedWeek = selectedCrossoverPayment.timeSheet.start_date
+        val selectedWeek = selectedCrossoverPayment.periodStartDate
 
         val weekDirectory = outputPath!!.resolve(selectedWeek.toString())
 

@@ -46,7 +46,7 @@ class InvoiceService {
 
         require(template.exists()) { "Template file doesn't exists" }
 
-        val weekDate = selectedCrossoverPayment.timeSheet.start_date
+        val weekDate = selectedCrossoverPayment.periodStartDate
 
         val money = Money(selectedOperation.amount, Currency.getInstance(selectedOperation.currency))
 
