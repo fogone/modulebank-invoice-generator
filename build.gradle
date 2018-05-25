@@ -67,7 +67,9 @@ dependencies {
     testCompile 'junit:junit:4.12'
 }
 
+group = "ru.nobirds.crossover"
 mainClassName = 'ru.nobirds.invoice.app.InvoiceGeneratorApplicationKt'
+version = '1.0-SNAPSHOT'
 
 jar {
     manifest {
