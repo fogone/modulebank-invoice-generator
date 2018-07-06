@@ -36,6 +36,8 @@ class MainView : View("Invoice generator") {
 
     private val crossoverService: CrossoverService by di()
 
+    private val payoneerService: PayoneerService by di()
+
     private var bankProcessNode: Node = fontAwesome[GEAR]
     private var crossoverProcessNode: Node = fontAwesome[GEAR]
 
@@ -126,6 +128,10 @@ class MainView : View("Invoice generator") {
 
     private val invoiceGenerationIcon = SimpleObjectProperty(fontAwesome[QUESTION_CIRCLE])
     private val timesheetGenerationIcon = SimpleObjectProperty(fontAwesome[QUESTION_CIRCLE])
+    private val mailEncodingIcon = SimpleObjectProperty(fontAwesome[QUESTION_CIRCLE])
+
+    private val payoneerMailProperty = SimpleObjectProperty<File?>()
+    private var payoneerMail by payoneerMailProperty
 
     override val root = vbox {
         splitpane(Orientation.HORIZONTAL) {
@@ -310,6 +316,23 @@ class MainView : View("Invoice generator") {
 
             separator(Orientation.VERTICAL)
 
+            form {
+                fieldset("Payoneer", fontAwesome[MONEY]) {
+                    field("Encoded mail") {
+                        label(payoneerMailProperty.stringBinding { it?.toString() ?: "[Please select]" })
+                        button("", fontAwesome[FILE]) {
+                            action {
+                                chooseTemplate()?.let {
+                                    payoneerMail = it
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            separator(Orientation.VERTICAL)
+
             region {
                 hboxConstraints {
                     hgrow = Priority.ALWAYS
@@ -328,6 +351,11 @@ class MainView : View("Invoice generator") {
                     field {
                         label("Timesheet grab") {
                             graphicProperty().bind(timesheetGenerationIcon)
+                        }
+                    }
+                    field {
+                        label("Mail encoding") {
+                            graphicProperty().bind(mailEncodingIcon)
                         }
                     }
                     field {
@@ -407,6 +435,13 @@ class MainView : View("Invoice generator") {
         timesheetGenerationIcon.animate {
             crossoverService.grabTimesheetScreenTo(crossoverLogin, crossoverPassword,
                     selectedWeek, weekDirectory.resolve("timesheet-$selectedWeek.$number.png"))
+        }
+
+        if (payoneerMail?.exists() == true) {
+            mailEncodingIcon.animate {
+                payoneerService.prepareMail(payoneerMail?.readText() ?: "",
+                        weekDirectory.resolve("payoneer-$selectedWeek.$number.html"))
+            }
         }
 
         invoiceNumber++
