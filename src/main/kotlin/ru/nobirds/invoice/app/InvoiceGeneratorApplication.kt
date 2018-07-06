@@ -7,6 +7,7 @@ import ru.nobirds.invoice.service.CrossoverService
 import ru.nobirds.invoice.service.HttpSupport
 import ru.nobirds.invoice.service.InvoiceService
 import ru.nobirds.invoice.service.ModulebankService
+import ru.nobirds.invoice.service.PayoneerService
 import ru.nobirds.invoice.view.MainView
 import tornadofx.*
 import java.util.concurrent.TimeUnit
@@ -37,6 +38,8 @@ class InvoiceGeneratorApplication : App(MainView::class, Styles::class) {
             val modulebankService by register { ModulebankService(httpSupport) }
 
             val crossoverTimesheetService by register { CrossoverService(httpSupport) }
+
+            val payoneerService by register { PayoneerService() }
         }
     }
 

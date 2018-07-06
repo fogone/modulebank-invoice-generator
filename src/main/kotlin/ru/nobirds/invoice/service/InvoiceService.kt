@@ -48,7 +48,7 @@ class InvoiceService {
 
         val weekDate = selectedCrossoverPayment.periodStartDate
 
-        val money = Money(selectedOperation.amount, Currency.getInstance(selectedOperation.currency))
+        val money = Money(selectedCrossoverPayment.amount, Currency.getInstance(selectedOperation.currency))
 
         val firstDayOfWeek = weekDate.withDayOfWeek(DayOfWeek.MONDAY)
         val lastDayOfWeek = weekDate.withDayOfWeek(DayOfWeek.SUNDAY)
