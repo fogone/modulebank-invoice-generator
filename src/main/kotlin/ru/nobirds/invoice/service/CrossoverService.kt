@@ -19,6 +19,7 @@ enum class CrossoverPaymentStatus {
 }
 
 data class CrossoverToken(val token: String)
+data class CrossoverPayments(val payments: List<CrossoverPayment>, val overtimeTrackingStatus: Boolean)
 data class CrossoverPayment(val platform: String, val team: String,
                             val workedHours: BigDecimal,
                             val paidHours: BigDecimal,
@@ -52,7 +53,7 @@ class CrossoverService(private val httpSupport: HttpSupport) {
         return httpSupport.post<CrossoverToken>(httpUrl!!) { withBasic(username, password) }.token
     }
 
-    suspend fun findPayments(token: String, from: LocalDate, to: LocalDate): List<CrossoverPayment> {
+    suspend fun findPayments(token: String, from: LocalDate, to: LocalDate): CrossoverPayments {
         val url = HttpUrl.parse("https://api.crossover.com/api/v2/payments?from=$from&to=$to")
         return httpSupport.get(url!!) { withXAuthToken(token) }
     }
