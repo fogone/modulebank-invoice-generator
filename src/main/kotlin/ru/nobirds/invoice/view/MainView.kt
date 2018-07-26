@@ -486,7 +486,7 @@ class MainView : View("Invoice generator") {
             crossoverProcessNode.withRotation {
                 crossoverPayments = crossoverService
                         .findPayments(crossoverConnectionToken, LocalDate.now().minusMonths(3), LocalDate.now())
-                        .observable()
+                        .payments.observable()
             }
         }
     }
